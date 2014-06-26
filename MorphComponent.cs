@@ -12,7 +12,7 @@ namespace Jackalope
     /// Constructor
     /// </summary>
     protected MorphComponent(string name, string nickname, string description)
-      : base(name, nickname, description, "Jackalope", "Morph")
+      : base(name, nickname, description, "Transform", "Jackalope")
     {
     }
 
