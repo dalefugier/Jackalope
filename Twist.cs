@@ -76,6 +76,7 @@ namespace Jackalope
       TwistSpaceMorph morph = new TwistSpaceMorph();
       morph.TwistAxis = axis;
       morph.TwistAngleRadians = angle;
+      morph.InfiniteTwist = bInfiniteTwist;
       morph.PreserveStructure = bPreserveStructure;
       morph.QuickPreview = bQuickPreview;
 
