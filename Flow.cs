@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 using Rhino.Geometry.Morphs;
 
@@ -28,72 +30,71 @@ namespace Jackalope
     /// <summary>
     /// Registers all the input parameters for this component.
     /// </summary>
-    protected override void RegisterInputParams(GH_Component.GH_InputParamManager PM)
+    protected override void RegisterInputParams(GH_InputParamManager pm)
     {
-      m_ge_index = PM.AddGeometryParameter("Geometry", "G", "Base geometry", GH_ParamAccess.list);
-      m_c0_index = PM.AddCurveParameter("Base", "C0", "Base curve", GH_ParamAccess.item);
-      m_c1_index = PM.AddCurveParameter("Target", "C1", "Target curve", GH_ParamAccess.item);
-      m_r0_index = PM.AddBooleanParameter("Reverse Base", "R0", "If true, then direction of the base curve is reversed.", GH_ParamAccess.item, false);
-      m_r1_index = PM.AddBooleanParameter("Reverse Target", "R1", "If true, then direction of the target curve is reversed.", GH_ParamAccess.item, false);
-      m_pr_index = PM.AddBooleanParameter("Prevent", "X", "If true, the length of the objects along the curve directions are not changed. If false, objects are stretched or compressed in the curve direction so that the relationship to the target curve is the same as it is to the base curve.", GH_ParamAccess.item, false);
-      m_ps_index = PM.AddBooleanParameter("Preserve", "V", "If true, preserves the control point structure of the surface. If false, geometry is refit as needed with more control points to allow accurate deformation.", GH_ParamAccess.item, false);
-      m_qp_index = PM.AddBooleanParameter("Quick", "Q", "If true, morph should be done as quickly as possible. If false, morph should be done as accurately as possible", GH_ParamAccess.item, false);
+      m_ge_index = pm.AddGeometryParameter("Geometry", "G", "Base geometry", GH_ParamAccess.list);
+      m_c0_index = pm.AddCurveParameter("Base", "C0", "Base curve", GH_ParamAccess.item);
+      m_c1_index = pm.AddCurveParameter("Target", "C1", "Target curve", GH_ParamAccess.item);
+      m_r0_index = pm.AddBooleanParameter("Reverse Base", "R0", "If true, then direction of the base curve is reversed.", GH_ParamAccess.item, false);
+      m_r1_index = pm.AddBooleanParameter("Reverse Target", "R1", "If true, then direction of the target curve is reversed.", GH_ParamAccess.item, false);
+      m_pr_index = pm.AddBooleanParameter("Prevent", "X", "If true, the length of the objects along the curve directions are not changed. If false, objects are stretched or compressed in the curve direction so that the relationship to the target curve is the same as it is to the base curve.", GH_ParamAccess.item, false);
+      m_ps_index = pm.AddBooleanParameter("Preserve", "V", "If true, preserves the control point structure of the surface. If false, geometry is refit as needed with more control points to allow accurate deformation.", GH_ParamAccess.item, false);
+      m_qp_index = pm.AddBooleanParameter("Quick", "Q", "If true, morph should be done as quickly as possible. If false, morph should be done as accurately as possible", GH_ParamAccess.item, false);
 
-      PM[m_r0_index].Optional = true;
-      PM[m_r1_index].Optional = true;
-      PM[m_pr_index].Optional = true;
-      PM[m_ps_index].Optional = true;
-      PM[m_qp_index].Optional = true;
+      pm[m_r0_index].Optional = true;
+      pm[m_r1_index].Optional = true;
+      pm[m_pr_index].Optional = true;
+      pm[m_ps_index].Optional = true;
+      pm[m_qp_index].Optional = true;
     }
 
     /// <summary>
     /// Registers all the output parameters for this component.
     /// </summary>
-    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager PM)
+    protected override void RegisterOutputParams(GH_OutputParamManager pm)
     {
-      PM.AddGeometryParameter("Geometry", "G", "Morphed geometry", GH_ParamAccess.list);
+      pm.AddGeometryParameter("Geometry", "G", "Morphed geometry", GH_ParamAccess.list);
     }
 
     /// <summary>
     /// This is the method that actually does the work.
     /// </summary>
-    protected override void SolveInstance(IGH_DataAccess DA)
+    protected override void SolveInstance(IGH_DataAccess da)
     {
-      List<GeometryBase> geometry = new List<GeometryBase>();
+      var geometry = new List<IGH_GeometricGoo>();
       Curve curve0 = null;
       Curve curve1 = null;
-      bool bReverse0 = false;
-      bool bReverse1 = false;
-      bool bPreventStretching = false;
-      bool bPreserveStructure = false;
-      bool bQuickPreview = false;
+      var reverse0 = false;
+      var reverse1 = false;
+      var prevent_stretching = false;
+      var preserve_structure = false;
+      var quick_preview = false;
 
-      if (!DA.GetDataList(m_ge_index, geometry) || 0 == geometry.Count)
+      if (!da.GetDataList(m_ge_index, geometry) || 0 == geometry.Count)
         return;
-      if (!DA.GetData(m_c0_index, ref curve0))
+      if (!da.GetData(m_c0_index, ref curve0))
         return;
-      if (!DA.GetData(m_c1_index, ref curve1))
+      if (!da.GetData(m_c1_index, ref curve1))
         return;
-      if (!DA.GetData(m_r0_index, ref bReverse0))
+      if (!da.GetData(m_r0_index, ref reverse0))
         return;
-      if (!DA.GetData(m_r1_index, ref bReverse1))
+      if (!da.GetData(m_r1_index, ref reverse1))
         return;
-      if (!DA.GetData(m_pr_index, ref bPreventStretching))
+      if (!da.GetData(m_pr_index, ref prevent_stretching))
         return;
-      if (!DA.GetData(m_ps_index, ref bPreserveStructure))
+      if (!da.GetData(m_ps_index, ref preserve_structure))
         return;
-      if (!DA.GetData(m_qp_index, ref bQuickPreview))
+      if (!da.GetData(m_qp_index, ref quick_preview))
         return;
 
-      FlowSpaceMorph morph = new FlowSpaceMorph(curve0, curve1, bReverse0, bReverse1, bPreventStretching);
-      morph.PreserveStructure = bPreserveStructure;
-      morph.QuickPreview = bQuickPreview;
+      var morph = new FlowSpaceMorph(curve0, curve1, reverse0, reverse1, prevent_stretching)
+      {
+        PreserveStructure = preserve_structure,
+        QuickPreview = quick_preview
+      };
 
-      List<GeometryBase> output = new List<GeometryBase>();
-      foreach (GeometryBase geom in geometry)
-        output.Add(MorphGeometry(morph, geom));
-
-      DA.SetDataList(0, output);
+      var output = geometry.Select(geom => geom.DuplicateGeometry().Morph(morph)).ToList();
+      da.SetDataList(0, output);
     }
 
     /// <summary>
@@ -101,7 +102,7 @@ namespace Jackalope
     /// </summary>
     protected override System.Drawing.Bitmap Icon
     {
-      get { return Jackalope.Properties.Resources.Flow; }
+      get { return Properties.Resources.Flow; }
     }
 
     /// <summary>

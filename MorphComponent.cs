@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Grasshopper.Kernel;
+﻿using Grasshopper.Kernel;
+using Rhino.Geometry;
 
 namespace Jackalope
 {
@@ -19,42 +16,42 @@ namespace Jackalope
     /// <summary>
     /// Morph helper function
     /// </summary>
-    protected static Rhino.Geometry.GeometryBase MorphGeometry(Rhino.Geometry.SpaceMorph morph, Rhino.Geometry.GeometryBase old_geometry)
+    protected static GeometryBase MorphGeometry(SpaceMorph morph, GeometryBase oldGeometry)
     {
-      if (null == morph || null == old_geometry || !old_geometry.IsValid)
+      if (null == morph || null == oldGeometry || !oldGeometry.IsValid)
         return null;
 
-      bool bIsMorphable = Rhino.Geometry.SpaceMorph.IsMorphable(old_geometry);
+      bool is_morphable = SpaceMorph.IsMorphable(oldGeometry);
 
-      Rhino.Geometry.Curve old_curve = old_geometry as Rhino.Geometry.Curve;
-      Rhino.Geometry.NurbsCurve new_curve = null;
-      if (null != old_curve && (null == old_curve as Rhino.Geometry.NurbsCurve || !bIsMorphable))
+      var old_curve = oldGeometry as Curve;
+      NurbsCurve new_curve = null;
+      if (null != old_curve && (null == old_curve as NurbsCurve || !is_morphable))
       {
         new_curve = old_curve.ToNurbsCurve();
         if (null != new_curve)
-          bIsMorphable = true;
+          is_morphable = true;
       }
 
-      Rhino.Geometry.Surface old_surface = old_geometry as Rhino.Geometry.Surface;
-      Rhino.Geometry.Brep new_surface = null;
-      if (null != old_surface && (null == old_surface as Rhino.Geometry.NurbsSurface || !bIsMorphable))
+      var old_surface = oldGeometry as Surface;
+      Brep new_surface = null;
+      if (null != old_surface && (null == old_surface as NurbsSurface || !is_morphable))
       {
-        new_surface = Rhino.Geometry.Brep.CreateFromSurface(old_surface);
+        new_surface = Brep.CreateFromSurface(old_surface);
         if (null != new_surface)
-          bIsMorphable = true;
+          is_morphable = true;
       }
 
-      Rhino.Geometry.Extrusion old_extrusion =  old_geometry as Rhino.Geometry.Extrusion;
-      Rhino.Geometry.Brep new_extrusion = null;
-      if (null != old_extrusion && !bIsMorphable )
+      var old_extrusion =  oldGeometry as Extrusion;
+      Brep new_extrusion = null;
+      if (null != old_extrusion && !is_morphable )
       {
         new_extrusion = old_extrusion.ToBrep(true);
         if (null != new_extrusion)
-          bIsMorphable = true;
+          is_morphable = true;
       }
 
-      Rhino.Geometry.GeometryBase new_geometry = null;
-      if (bIsMorphable)
+      GeometryBase new_geometry = null;
+      if (is_morphable)
       {
         if (null != new_curve)
           new_geometry = new_curve;
@@ -63,17 +60,17 @@ namespace Jackalope
         else if (null != new_extrusion)
           new_geometry = new_extrusion;
         else
-          new_geometry = old_geometry.Duplicate();
+          new_geometry = oldGeometry.Duplicate();
 
         if (null != new_geometry)
         {
           if (morph.Morph(new_geometry) )
           {
-            Rhino.Geometry.Brep brep = new_geometry as Rhino.Geometry.Brep;
+            var brep = new_geometry as Brep;
             if (null != brep )
             {
               brep.Faces.SplitKinkyFaces(Rhino.RhinoMath.DefaultAngleTolerance, true);
-              if (Rhino.Geometry.BrepSolidOrientation.Inward == brep.SolidOrientation)
+              if (BrepSolidOrientation.Inward == brep.SolidOrientation)
                 brep.Flip();
               brep.Compact();
             }

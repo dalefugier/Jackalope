@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 using Rhino.Geometry.Morphs;
 
@@ -27,67 +29,66 @@ namespace Jackalope
     /// <summary>
     /// Registers all the input parameters for this component.
     /// </summary>
-    protected override void RegisterInputParams(GH_Component.GH_InputParamManager PM)
+    protected override void RegisterInputParams(GH_InputParamManager pm)
     {
-      m_ge_index = PM.AddGeometryParameter("Geometry", "G", "Base geometry", GH_ParamAccess.list);
-      m_s0_index = PM.AddSurfaceParameter("Base", "S0", "Base surface", GH_ParamAccess.item);
-      m_p0_index = PM.AddPointParameter("Parameter", "uv0", "U,V parameter on base surface used for orienting. If unset, then surface origin is used.", GH_ParamAccess.item, Rhino.Geometry.Point3d.Unset);
-      m_s1_index = PM.AddSurfaceParameter("Target", "S1", "Target surface", GH_ParamAccess.item);
-      m_p1_index = PM.AddPointParameter("Parameter", "uv1", "U,V parameter on target surface used for orienting. If unset, then surface origin is used.", GH_ParamAccess.item, Rhino.Geometry.Point3d.Unset);
-      m_ps_index = PM.AddBooleanParameter("Preserve", "V", "If true, preserves the control point structure of the surface. If false, geometry is refit as needed with more control points to allow accurate deformation.", GH_ParamAccess.item, false);
-      m_qp_index = PM.AddBooleanParameter("Quick", "Q", "If true, morph should be done as quickly as possible. If false, morph should be done as accurately as possible", GH_ParamAccess.item, false);
+      m_ge_index = pm.AddGeometryParameter("Geometry", "G", "Base geometry", GH_ParamAccess.list);
+      m_s0_index = pm.AddSurfaceParameter("Base", "S0", "Base surface", GH_ParamAccess.item);
+      m_p0_index = pm.AddPointParameter("Parameter", "uv0", "U,V parameter on base surface used for orienting. If unset, then surface origin is used.", GH_ParamAccess.item, Point3d.Unset);
+      m_s1_index = pm.AddSurfaceParameter("Target", "S1", "Target surface", GH_ParamAccess.item);
+      m_p1_index = pm.AddPointParameter("Parameter", "uv1", "U,V parameter on target surface used for orienting. If unset, then surface origin is used.", GH_ParamAccess.item, Point3d.Unset);
+      m_ps_index = pm.AddBooleanParameter("Preserve", "V", "If true, preserves the control point structure of the surface. If false, geometry is refit as needed with more control points to allow accurate deformation.", GH_ParamAccess.item, false);
+      m_qp_index = pm.AddBooleanParameter("Quick", "Q", "If true, morph should be done as quickly as possible. If false, morph should be done as accurately as possible", GH_ParamAccess.item, false);
 
-      PM[m_p0_index].Optional = true;
-      PM[m_p1_index].Optional = true;
-      PM[m_ps_index].Optional = true;
-      PM[m_qp_index].Optional = true;
+      pm[m_p0_index].Optional = true;
+      pm[m_p1_index].Optional = true;
+      pm[m_ps_index].Optional = true;
+      pm[m_qp_index].Optional = true;
     }
 
     /// <summary>
     /// Registers all the output parameters for this component.
     /// </summary>
-    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager PM)
+    protected override void RegisterOutputParams(GH_OutputParamManager pm)
     {
-      PM.AddGeometryParameter("Geometry", "G", "Morphed geometry", GH_ParamAccess.list);
+      pm.AddGeometryParameter("Geometry", "G", "Morphed geometry", GH_ParamAccess.list);
     }
 
     /// <summary>
     /// This is the method that actually does the work.
     /// </summary>
-    protected override void SolveInstance(IGH_DataAccess DA)
+    protected override void SolveInstance(IGH_DataAccess da)
     {
-      List<GeometryBase> geometry = new List<GeometryBase>();
+      var geometry = new List<IGH_GeometricGoo>();
       Surface surface0 = null;
-      Point3d point0 = Point3d.Unset;
+      var point0 = Point3d.Unset;
       Surface surface1 = null;
-      Point3d point1 = Point3d.Unset;
-      bool bPreserveStructure = false;
-      bool bQuickPreview = false;
+      var point1 = Point3d.Unset;
+      var preserve_structure = false;
+      var quick_preview = false;
 
-      if (!DA.GetDataList(m_ge_index, geometry) || 0 == geometry.Count)
+      if (!da.GetDataList(m_ge_index, geometry) || 0 == geometry.Count)
         return;
-      if (!DA.GetData(m_s0_index, ref surface0))
+      if (!da.GetData(m_s0_index, ref surface0))
         return;
-      if (!DA.GetData(m_p0_index, ref point0))
+      if (!da.GetData(m_p0_index, ref point0))
         return;
-      if (!DA.GetData(m_s1_index, ref surface1))
+      if (!da.GetData(m_s1_index, ref surface1))
         return;
-      if (!DA.GetData(m_p1_index, ref point1))
+      if (!da.GetData(m_p1_index, ref point1))
         return;
-      if (!DA.GetData(m_ps_index, ref bPreserveStructure))
+      if (!da.GetData(m_ps_index, ref preserve_structure))
         return;
-      if (!DA.GetData(m_qp_index, ref bQuickPreview))
+      if (!da.GetData(m_qp_index, ref quick_preview))
         return;
 
-      SporphSpaceMorph morph = new SporphSpaceMorph(surface0, surface1, new Point2d(point0), new Point2d(point1));
-      morph.PreserveStructure = bPreserveStructure;
-      morph.QuickPreview = bQuickPreview;
+      var morph = new SporphSpaceMorph(surface0, surface1, new Point2d(point0), new Point2d(point1))
+      {
+        PreserveStructure = preserve_structure,
+        QuickPreview = quick_preview
+      };
 
-      List<GeometryBase> output = new List<GeometryBase>();
-      foreach (GeometryBase geom in geometry)
-        output.Add(MorphGeometry(morph, geom));
-
-      DA.SetDataList(0, output);
+      var output = geometry.Select(geom => geom.DuplicateGeometry().Morph(morph)).ToList();
+      da.SetDataList(0, output);
     }
 
     /// <summary>
@@ -95,7 +96,7 @@ namespace Jackalope
     /// </summary>
     protected override System.Drawing.Bitmap Icon
     {
-      get { return Jackalope.Properties.Resources.Sporph; }
+      get { return Properties.Resources.Sporph; }
     }
 
     /// <summary>

@@ -16,7 +16,7 @@ namespace Jackalope
     
     public override Bitmap Icon
     {
-      get { return Jackalope.Properties.Resources.Jackalope; }
+      get { return Properties.Resources.Jackalope; }
     }
 
     public override string Description

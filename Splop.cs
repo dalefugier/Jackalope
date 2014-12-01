@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 using Rhino.Geometry.Morphs;
 
@@ -28,73 +30,72 @@ namespace Jackalope
     /// <summary>
     /// Registers all the input parameters for this component.
     /// </summary>
-    protected override void RegisterInputParams(GH_Component.GH_InputParamManager PM)
+    protected override void RegisterInputParams(GH_InputParamManager pm)
     {
-      m_ge_index = PM.AddGeometryParameter("Geometry", "G", "Base geometry", GH_ParamAccess.list);
-      m_pl_index = PM.AddPlaneParameter("Plane", "P", "Source plane of deformation", GH_ParamAccess.item);
-      m_sf_index = PM.AddSurfaceParameter("Surface", "S", "Surface to wrap geometry onto", GH_ParamAccess.item);
-      m_pt_index = PM.AddPointParameter("Parameter", "uv", "U,V parameter on surface used for orienting", GH_ParamAccess.item);
-      m_sc_index = PM.AddNumberParameter("Factor", "F", "Scale factor", GH_ParamAccess.item, Rhino.RhinoMath.UnsetValue);
-      m_an_index = PM.AddNumberParameter("Angle", "A", "Rotation angle in radians", GH_ParamAccess.item, Rhino.RhinoMath.UnsetValue);
-      m_ps_index = PM.AddBooleanParameter("Preserve", "V", "If true, preserves the control point structure of the surface. If false, geometry is refit as needed with more control points to allow accurate deformation.", GH_ParamAccess.item, false);
-      m_qp_index = PM.AddBooleanParameter("Quick", "Q", "If true, morph should be done as quickly as possible. If false, morph should be done as accurately as possible", GH_ParamAccess.item, false);
+      m_ge_index = pm.AddGeometryParameter("Geometry", "G", "Base geometry", GH_ParamAccess.list);
+      m_pl_index = pm.AddPlaneParameter("Plane", "P", "Source plane of deformation", GH_ParamAccess.item);
+      m_sf_index = pm.AddSurfaceParameter("Surface", "S", "Surface to wrap geometry onto", GH_ParamAccess.item);
+      m_pt_index = pm.AddPointParameter("Parameter", "uv", "U,V parameter on surface used for orienting", GH_ParamAccess.item);
+      m_sc_index = pm.AddNumberParameter("Factor", "F", "Scale factor", GH_ParamAccess.item, Rhino.RhinoMath.UnsetValue);
+      m_an_index = pm.AddNumberParameter("Angle", "A", "Rotation angle in radians", GH_ParamAccess.item, Rhino.RhinoMath.UnsetValue);
+      m_ps_index = pm.AddBooleanParameter("Preserve", "V", "If true, preserves the control point structure of the surface. If false, geometry is refit as needed with more control points to allow accurate deformation.", GH_ParamAccess.item, false);
+      m_qp_index = pm.AddBooleanParameter("Quick", "Q", "If true, morph should be done as quickly as possible. If false, morph should be done as accurately as possible", GH_ParamAccess.item, false);
 
-      PM[m_pl_index].Optional = true;
-      PM[m_sc_index].Optional = true;
-      PM[m_an_index].Optional = true;
-      PM[m_ps_index].Optional = true;
-      PM[m_qp_index].Optional = true;
+      pm[m_pl_index].Optional = true;
+      pm[m_sc_index].Optional = true;
+      pm[m_an_index].Optional = true;
+      pm[m_ps_index].Optional = true;
+      pm[m_qp_index].Optional = true;
     }
 
     /// <summary>
     /// Registers all the output parameters for this component.
     /// </summary>
-    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager PM)
+    protected override void RegisterOutputParams(GH_OutputParamManager pm)
     {
-      PM.AddGeometryParameter("Geometry", "G", "Morphed geometry", GH_ParamAccess.list);
+      pm.AddGeometryParameter("Geometry", "G", "Morphed geometry", GH_ParamAccess.list);
     }
 
     /// <summary>
     /// This is the method that actually does the work.
     /// </summary>
-    /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
-    protected override void SolveInstance(IGH_DataAccess DA)
+    /// <param name="da">The DA object is used to retrieve from inputs and store in outputs.</param>
+    protected override void SolveInstance(IGH_DataAccess da)
     {
-      List<GeometryBase> geometry = new List<GeometryBase>();
-      Plane plane = Plane.WorldXY;
+      var geometry = new List<IGH_GeometricGoo>();
+      var plane = Plane.WorldXY;
       Surface surface = null;
-      Point3d point = Point3d.Unset;
-      double scale_factor = Rhino.RhinoMath.UnsetValue;
-      double angle = Rhino.RhinoMath.UnsetValue;
-      bool bPreserveStructure = false;
-      bool bQuickPreview = false;
+      var point = Point3d.Unset;
+      var scale_factor = Rhino.RhinoMath.UnsetValue;
+      var angle = Rhino.RhinoMath.UnsetValue;
+      var preserve_structure = false;
+      var quick_preview = false;
 
-      if (!DA.GetDataList(m_ge_index, geometry) || 0 == geometry.Count)
+      if (!da.GetDataList(m_ge_index, geometry) || 0 == geometry.Count)
         return;
-      if (!DA.GetData(m_pl_index, ref plane))
+      if (!da.GetData(m_pl_index, ref plane))
         return;
-      if (!DA.GetData(m_sf_index, ref surface))
+      if (!da.GetData(m_sf_index, ref surface))
         return;
-      if (!DA.GetData(m_pt_index, ref point))
+      if (!da.GetData(m_pt_index, ref point))
         return;
-      if (!DA.GetData(m_sc_index, ref scale_factor))
+      if (!da.GetData(m_sc_index, ref scale_factor))
         return;
-      if (!DA.GetData(m_an_index, ref angle))
+      if (!da.GetData(m_an_index, ref angle))
         return;
-      if (!DA.GetData(m_ps_index, ref bPreserveStructure))
+      if (!da.GetData(m_ps_index, ref preserve_structure))
         return;
-      if (!DA.GetData(m_qp_index, ref bQuickPreview))
+      if (!da.GetData(m_qp_index, ref quick_preview))
         return;
 
-      SplopSpaceMorph morph = new SplopSpaceMorph(plane, surface, new Point2d(point), scale_factor, angle);
-      morph.PreserveStructure = bPreserveStructure;
-      morph.QuickPreview = bQuickPreview;
+      var morph = new SplopSpaceMorph(plane, surface, new Point2d(point), scale_factor, angle)
+      {
+        PreserveStructure = preserve_structure,
+        QuickPreview = quick_preview
+      };
 
-      List<GeometryBase> output = new List<GeometryBase>();
-      foreach (GeometryBase geom in geometry)
-        output.Add(MorphGeometry(morph, geom));
-
-      DA.SetDataList(0, output);
+      var output = geometry.Select(geom => geom.DuplicateGeometry().Morph(morph)).ToList();
+      da.SetDataList(0, output);
     }
 
     /// <summary>
@@ -102,7 +103,7 @@ namespace Jackalope
     /// </summary>
     protected override System.Drawing.Bitmap Icon
     {
-      get { return Jackalope.Properties.Resources.Splop; }
+      get { return Properties.Resources.Splop; }
     }
 
     /// <summary>

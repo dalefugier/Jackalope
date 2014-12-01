@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 using Rhino.Geometry.Morphs;
 
@@ -28,71 +30,70 @@ namespace Jackalope
     /// <summary>
     /// Registers all the input parameters for this component.
     /// </summary>
-    protected override void RegisterInputParams(GH_Component.GH_InputParamManager PM)
+    protected override void RegisterInputParams(GH_InputParamManager pm)
     {
-      m_ge_index = PM.AddGeometryParameter("Geometry", "G", "Base geometry", GH_ParamAccess.list);
-      m_ax_index = PM.AddLineParameter("Axis", "X", "Taper axis", GH_ParamAccess.item);
-      m_r0_index = PM.AddNumberParameter("Start", "R0", "Radius at start of taper axis", GH_ParamAccess.item);
-      m_r1_index = PM.AddNumberParameter("End", "R1", "Radius at end of taper axis", GH_ParamAccess.item);
-      m_fl_index = PM.AddBooleanParameter("Flat", "F", "If true, then a one-directional, one-dimensional taper is created.", GH_ParamAccess.item, false);
-      m_it_index = PM.AddBooleanParameter("Infinite", "I", "If true, the deformation happens throughout the geometry, even if the axis is shorter. If false, the deformation takes place only the length of the axis.", GH_ParamAccess.item, false);
-      m_ps_index = PM.AddBooleanParameter("Preserve", "V", "If true, preserves the control point structure of the surface. If false, geometry is refit as needed with more control points to allow accurate deformation.", GH_ParamAccess.item, false);
-      m_qp_index = PM.AddBooleanParameter("Quick", "Q", "If true, morph should be done as quickly as possible. If false, morph should be done as accurately as possible", GH_ParamAccess.item, false);
+      m_ge_index = pm.AddGeometryParameter("Geometry", "G", "Base geometry", GH_ParamAccess.list);
+      m_ax_index = pm.AddLineParameter("Axis", "X", "Taper axis", GH_ParamAccess.item);
+      m_r0_index = pm.AddNumberParameter("Start", "R0", "Radius at start of taper axis", GH_ParamAccess.item);
+      m_r1_index = pm.AddNumberParameter("End", "R1", "Radius at end of taper axis", GH_ParamAccess.item);
+      m_fl_index = pm.AddBooleanParameter("Flat", "F", "If true, then a one-directional, one-dimensional taper is created.", GH_ParamAccess.item, false);
+      m_it_index = pm.AddBooleanParameter("Infinite", "I", "If true, the deformation happens throughout the geometry, even if the axis is shorter. If false, the deformation takes place only the length of the axis.", GH_ParamAccess.item, false);
+      m_ps_index = pm.AddBooleanParameter("Preserve", "V", "If true, preserves the control point structure of the surface. If false, geometry is refit as needed with more control points to allow accurate deformation.", GH_ParamAccess.item, false);
+      m_qp_index = pm.AddBooleanParameter("Quick", "Q", "If true, morph should be done as quickly as possible. If false, morph should be done as accurately as possible", GH_ParamAccess.item, false);
 
-      PM[m_fl_index].Optional = true;
-      PM[m_it_index].Optional = true;
-      PM[m_ps_index].Optional = true;
-      PM[m_qp_index].Optional = true;
+      pm[m_fl_index].Optional = true;
+      pm[m_it_index].Optional = true;
+      pm[m_ps_index].Optional = true;
+      pm[m_qp_index].Optional = true;
     }
 
     /// <summary>
     /// Registers all the output parameters for this component.
     /// </summary>
-    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager PM)
+    protected override void RegisterOutputParams(GH_OutputParamManager pm)
     {
-      PM.AddGeometryParameter("Geometry", "G", "Morphed geometry", GH_ParamAccess.list);
+      pm.AddGeometryParameter("Geometry", "G", "Morphed geometry", GH_ParamAccess.list);
     }
 
     /// <summary>
     /// This is the method that actually does the work.
     /// </summary>
-    protected override void SolveInstance(IGH_DataAccess DA)
+    protected override void SolveInstance(IGH_DataAccess da)
     {
-      List<GeometryBase> geometry = new List<GeometryBase>();
-      Line axis = Line.Unset;
-      double radius0 = Rhino.RhinoMath.UnsetValue;
-      double radius1 = Rhino.RhinoMath.UnsetValue;
-      bool bFlat = false;
-      bool bInfiniteTaper = false;
-      bool bPreserveStructure = false;
-      bool bQuickPreview = false;
+      var geometry = new List<IGH_GeometricGoo>();
+      var axis = Line.Unset;
+      var radius0 = Rhino.RhinoMath.UnsetValue;
+      var radius1 = Rhino.RhinoMath.UnsetValue;
+      var flat = false;
+      var infinite_taper = false;
+      var preserve_structure = false;
+      var quick_preview = false;
 
-      if (!DA.GetDataList(m_ge_index, geometry) || 0 == geometry.Count)
+      if (!da.GetDataList(m_ge_index, geometry) || 0 == geometry.Count)
         return;
-      if (!DA.GetData(m_ax_index, ref axis))
+      if (!da.GetData(m_ax_index, ref axis))
         return;
-      if (!DA.GetData(m_r0_index, ref radius0))
+      if (!da.GetData(m_r0_index, ref radius0))
         return;
-      if (!DA.GetData(m_r1_index, ref radius1))
+      if (!da.GetData(m_r1_index, ref radius1))
         return;
-      if (!DA.GetData(m_fl_index, ref bFlat))
+      if (!da.GetData(m_fl_index, ref flat))
         return;
-      if (!DA.GetData(m_it_index, ref bInfiniteTaper))
+      if (!da.GetData(m_it_index, ref infinite_taper))
         return;
-      if (!DA.GetData(m_ps_index, ref bPreserveStructure))
+      if (!da.GetData(m_ps_index, ref preserve_structure))
         return;
-      if (!DA.GetData(m_qp_index, ref bQuickPreview))
+      if (!da.GetData(m_qp_index, ref quick_preview))
         return;
 
-      TaperSpaceMorph morph = new TaperSpaceMorph(axis.From, axis.To, radius0, radius1, bFlat, bInfiniteTaper);
-      morph.PreserveStructure = bPreserveStructure;
-      morph.QuickPreview = bQuickPreview;
+      var morph = new TaperSpaceMorph(axis.From, axis.To, radius0, radius1, flat, infinite_taper)
+      {
+        PreserveStructure = preserve_structure,
+        QuickPreview = quick_preview
+      };
 
-      List<GeometryBase> output = new List<GeometryBase>();
-      foreach (GeometryBase geom in geometry)
-        output.Add(MorphGeometry(morph, geom));
-
-      DA.SetDataList(0, output);
+      var output = geometry.Select(geom => geom.DuplicateGeometry().Morph(morph)).ToList();
+      da.SetDataList(0, output);
     }
 
     /// <summary>
@@ -100,7 +101,7 @@ namespace Jackalope
     /// </summary>
     protected override System.Drawing.Bitmap Icon
     {
-      get { return Jackalope.Properties.Resources.Taper; }
+      get { return Properties.Resources.Taper; }
     }
 
     /// <summary>
