@@ -25,7 +25,7 @@ namespace Jackalope
 
       var old_curve = oldGeometry as Curve;
       NurbsCurve new_curve = null;
-      if (null != old_curve && (null == old_curve as NurbsCurve || !is_morphable))
+      if (null != old_curve && (!(old_curve is NurbsCurve) || !is_morphable))
       {
         new_curve = old_curve.ToNurbsCurve();
         if (null != new_curve)
@@ -34,7 +34,7 @@ namespace Jackalope
 
       var old_surface = oldGeometry as Surface;
       Brep new_surface = null;
-      if (null != old_surface && (null == old_surface as NurbsSurface || !is_morphable))
+      if (null != old_surface && (!(old_surface is NurbsSurface) || !is_morphable))
       {
         new_surface = Brep.CreateFromSurface(old_surface);
         if (null != new_surface)
